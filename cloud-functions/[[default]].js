@@ -12,16 +12,11 @@ const config = {
   feishuWebhookUrl: process.env.FEISHU_WEBHOOK_URL
 };
 
-// PKCS7 编码
-function pkcs7Encode(data, k) {
-  const blockSize = 32;
-  const buffer = Buffer.alloc(blockSize);
-  const length = data.length;
-  const needed = blockSize - (length % blockSize);
-  for (let i = 0; i < needed; i++) {
-    buffer[i] = needed;
-  }
-  return Buffer.concat([data, buffer.slice(0, needed)]);
+// 启动时校验必要配置
+const requiredConfigs = ['token', 'encodingAESKey', 'appId', 'feishuWebhookUrl'];
+const missingConfigs = requiredConfigs.filter(key => !config[key]);
+if (missingConfigs.length > 0) {
+  console.error(`缺少必要环境变量: ${missingConfigs.map(k => `WX_${k.toUpperCase()}`).join(', ')}`);
 }
 
 // PKCS7 解码
@@ -33,292 +28,173 @@ function pkcs7Decode(data) {
   return data.slice(0, data.length - pad);
 }
 
-// AES 解密
-function decrypt(encrypted, encodingAesKey) {
+// AES-256-CBC 解密
+function decryptMessage(encrypted, encodingAesKey) {
   const aesKey = Buffer.from(encodingAesKey + '=', 'base64');
   const iv = aesKey.slice(0, 16);
-  
-  // 先对加密内容做 base64 解码
   const encryptedBuffer = Buffer.from(encrypted, 'base64');
-  
+
   const decipher = crypto.createDecipheriv('aes-256-cbc', aesKey, iv);
   decipher.setAutoPadding(false);
-  
-  let decrypted = Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
-  decrypted = pkcs7Decode(decrypted);
-  
+
+  const decrypted = pkcs7Decode(Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]));
   const msgLen = decrypted.readUInt32BE(16);
-  const msg = decrypted.slice(20, 20 + msgLen).toString('utf8');
-  const fromAppid = decrypted.slice(20 + msgLen).toString('utf8');
-  
-  return msg;
+  return decrypted.slice(20, 20 + msgLen).toString('utf8');
 }
 
-// 验证签名
-function verifySignature(token, timestamp, nonce, encrypt) {
-  const sortArr = [token, timestamp, nonce, encrypt].sort();
-  const sortStr = sortArr.join('');
-  const hash = crypto.createHash('sha1').update(sortStr).digest('hex');
-  return hash;
+// 计算签名
+function calcSignature(...parts) {
+  return crypto.createHash('sha1').update(parts.sort().join('')).digest('hex');
 }
 
 app.use(express.json());
 app.use(express.text({ type: 'text/xml' }));
 
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
-
+// 微信公众号验证
 app.get("/wechat", (req, res) => {
   const { signature, timestamp, nonce, echostr } = req.query;
 
-  console.log('WeChat verify request:', {
-    signature,
-    timestamp,
-    nonce,
-    echostr,
-    hasToken: !!config.token
-  });
-
-  if (!config.token) {
-    console.error('WX_TOKEN is not configured!');
-    return res.status(500).send('Server configuration error');
+  if (!config.token || !signature || !timestamp || !nonce || !echostr) {
+    return res.status(400).send('Bad request');
   }
 
-  if (!signature || !timestamp || !nonce || !echostr) {
-    console.error('Missing parameters');
-    return res.status(400).send('Missing parameters');
-  }
-
-  const tmpArr = [config.token, timestamp, nonce].sort();
-  const tmpStr = tmpArr.join('');
-  const hash = crypto.createHash('sha1').update(tmpStr).digest('hex');
-
-  console.log('Verification:', {
-    tmpArr,
-    tmpStr,
-    calculatedHash: hash,
-    receivedSignature: signature,
-    match: hash === signature
-  });
-
-  if (hash === signature) {
-    console.log('Verification success, returning echostr:', echostr);
+  if (calcSignature(config.token, timestamp, nonce) === signature) {
     res.send(echostr);
   } else {
-    console.error('Verification failed');
-    res.status(403).send('Invalid signature');
+    res.status(403).send('Forbidden');
   }
 });
 
+// 推送消息到飞书
 async function sendToFeishu(content) {
   try {
-    const response = await axios.post(config.feishuWebhookUrl, {
+    await axios.post(config.feishuWebhookUrl, {
       msg_type: 'text',
-      content: {
-        text: content
-      }
+      content: { text: content }
     }, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 5000
     });
-    console.log('Feishu response:', response.data);
   } catch (error) {
-    console.error('Feishu error:', error.message);
+    console.error('飞书推送失败:', error.message);
   }
 }
 
-function formatMessage(msgType, content, fromUser, createTime) {
-  const time = new Date(createTime * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-  let contentText = '';
-  let title = '【微信公众号消息】';
-
+// 格式化消息内容
+function extractContent(msgType, msg) {
   switch (msgType) {
     case 'text':
-      contentText = `📝 文本消息：\n${content}`;
-      break;
+      return msg.Content || '';
     case 'image':
-      contentText = '🖼️ 图片消息';
-      break;
+      return '[图片]';
     case 'voice':
-      contentText = '🎵 语音消息';
-      break;
+      return msg.Recognition || '[语音]';
     case 'video':
     case 'shortvideo':
-      contentText = '🎬 视频消息';
-      break;
+      return '[视频]';
     case 'location':
-      contentText = '📍 位置消息';
-      break;
+      return `[位置] ${msg.Label || ''}`;
     case 'link':
-      contentText = '🔗 链接消息';
-      break;
+      return `[链接] ${msg.Title || ''}`;
     case 'event':
-      title = '【微信公众号事件】';
-      // 处理事件消息
-      if (content.includes('unsubscribe')) {
-        contentText = '👋 用户取消关注';
-      } else if (content.includes('subscribe')) {
-        contentText = '🎉 新用户关注！';
-      } else if (content.includes('CLICK')) {
-        contentText = '👆 点击菜单事件';
-      } else if (content.includes('VIEW')) {
-        contentText = '🔍 点击链接跳转';
-      } else {
-        contentText = `📋 其他事件: ${content}`;
-      }
-      break;
+      return formatEventContent(msg.Event, msg.EventKey);
     default:
-      contentText = `📦 其他消息(${msgType}): ${content}`;
+      return `[${msgType}]`;
   }
-
-  return `${title}\n发送者: ${fromUser}\n时间: ${time}\n${contentText}`;
 }
 
-app.post("/wechat", async (req, res) => {
-  const rawBody = req.body;
-  const query = req.query;
-  
-  console.log('=== POST /wechat received ===');
-  console.log('Content-Type:', req.get('Content-Type'));
-  console.log('Query:', JSON.stringify(query));
-  console.log('rawBody type:', typeof rawBody);
-  console.log('rawBody:', JSON.stringify(rawBody));
-  
-  let finalXmlData = rawBody;
-  
-  // 第一步：解析初始消息
-  parseString(rawBody, { explicitArray: false }, async (err, initialResult) => {
-    if (err) {
-      console.error('✗ Initial XML parse error:', err);
-      return res.send('');
-    }
-    
-    const initialMsg = initialResult.xml;
-    
-    // 检查是否为加密消息（安全模式）
-    if (initialMsg && initialMsg.Encrypt) {
-      console.log('✓ Detected encrypted message (安全模式)');
-      
-      const encrypt = initialMsg.Encrypt;
-      const msg_signature = query.msg_signature;
-      const timestamp = query.timestamp;
-      const nonce = query.nonce;
-      
-      console.log('Encrypt data:', encrypt);
-      console.log('Params from URL:', { msg_signature, timestamp, nonce });
-      
-      // 验证签名
-      const calcSignature = verifySignature(config.token, timestamp, nonce, encrypt);
-      console.log('Signature verification:', {
-        calculated: calcSignature,
-        received: msg_signature,
-        match: calcSignature === msg_signature
-      });
-      
-      if (calcSignature !== msg_signature) {
-        console.error('✗ Signature verification failed!');
-        return res.send('Signature verification failed');
-      }
-      
-      // 解密消息
-      try {
-        finalXmlData = decrypt(encrypt, config.encodingAESKey);
-        console.log('✓ Decrypted message:', finalXmlData);
-      } catch (error) {
-        console.error('✗ Decryption error:', error);
-        return res.send('Decryption failed');
-      }
-    } else {
-      console.log('✓ Detected plaintext message (明文模式)');
-    }
-    
-    // 第二步：解析最终消息（可能是解密后的）
-    parseString(finalXmlData, { explicitArray: false }, async (err2, result) => {
-      if (err2) {
-        console.error('✗ Final XML parse error:', err2);
-        return res.send('');
-      }
+function formatEventContent(eventType, eventKey) {
+  switch (eventType) {
+    case 'subscribe':
+      return eventKey ? `扫码关注` : '关注';
+    case 'unsubscribe':
+      return '取消关注';
+    case 'CLICK':
+      return `点击菜单: ${eventKey || ''}`;
+    case 'VIEW':
+      return `点击链接: ${eventKey || ''}`;
+    default:
+      return eventType;
+  }
+}
 
-      const msg = result.xml;
-      if (!msg) {
-        console.error('✗ Invalid XML structure:', JSON.stringify(result));
-        return res.send('');
-      }
-      
-      const msgType = msg.MsgType || 'unknown';
-      const fromUser = msg.FromUserName || 'unknown';
-      const toUser = msg.ToUserName || 'unknown';
-      const createTime = msg.CreateTime || 0;
+function formatMessage(msgType, msg, fromUser, createTime) {
+  const time = new Date(createTime * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+  const isEvent = msgType === 'event';
+  const title = isEvent ? '【微信公众号事件】' : '【微信公众号消息】';
+  const content = extractContent(msgType, msg);
+  const typeLabel = {
+    text: '📝 文本', image: '🖼️ 图片', voice: '🎵 语音',
+    video: '🎬 视频', shortvideo: '🎬 小视频', location: '📍 位置',
+    link: '🔗 链接', event: '📋 事件'
+  }[msgType] || '📦 其他';
 
-      console.log('✓ Parsed message successfully');
-      console.log('Message details:', {
-        msgType,
-        fromUser,
-        toUser,
-        createTime,
-        fullMsg: JSON.stringify(msg)
-      });
+  return `${title}\n发送者: ${fromUser}\n时间: ${time}\n${typeLabel}: ${content}`;
+}
 
-      let content = '';
-
-      if (msgType === 'text') {
-        content = msg.Content;
-      } else if (msgType === 'image') {
-        content = `PicUrl: ${msg.PicUrl}`;
-      } else if (msgType === 'voice') {
-        content = `Recognition: ${msg.Recognition || '[语音]'}`;
-      } else if (msgType === 'video' || msgType === 'shortvideo') {
-        content = `[视频]`;
-      } else if (msgType === 'location') {
-        content = `Location_X: ${msg.Location_X}, Location_Y: ${msg.Location_Y}, Label: ${msg.Label}`;
-      } else if (msgType === 'link') {
-        content = `Title: ${msg.Title}, Description: ${msg.Description}, Url: ${msg.Url}`;
-      } else if (msgType === 'event') {
-        const eventType = msg.Event;
-        content = `Event: ${eventType}`;
-        if (eventType === 'subscribe') {
-          content += `, EventKey: ${msg.EventKey || ''}`;
-        } else if (eventType === 'unsubscribe') {
-          content = '取消关注';
-        } else if (eventType === 'CLICK') {
-          content += `, EventKey: ${msg.EventKey}`;
-        }
-      }
-
-      const feishuMsg = formatMessage(msgType, content, fromUser, createTime);
-      console.log('Feishu message:', feishuMsg);
-      await sendToFeishu(feishuMsg);
-
-      const builder = new Builder({ rootName: 'xml', headless: true });
-      const replyMsg = builder.buildObject({
-        ToUserName: fromUser,
-        FromUserName: toUser,
-        CreateTime: Math.floor(Date.now() / 1000),
-        MsgType: 'text',
-        Content: '消息已收到，我们会尽快处理！'
-      });
-
-      console.log('Reply message:', replyMsg);
-      res.type('application/xml').send(replyMsg);
+// 解析 XML（Promise 封装）
+function parseXml(xml) {
+  return new Promise((resolve, reject) => {
+    parseString(xml, { explicitArray: false }, (err, result) => {
+      if (err) reject(err);
+      else resolve(result.xml || {});
     });
   });
+}
+
+// 接收微信公众号消息
+app.post("/wechat", async (req, res) => {
+  try {
+    const rawBody = req.body;
+    let xmlData = rawBody;
+
+    // 解析初始 XML，判断是否加密
+    const initialMsg = await parseXml(rawBody);
+
+    if (initialMsg.Encrypt) {
+      // 安全模式：验证签名并解密
+      const { msg_signature, timestamp, nonce } = req.query;
+      if (calcSignature(config.token, timestamp, nonce, initialMsg.Encrypt) !== msg_signature) {
+        return res.status(403).send('Forbidden');
+      }
+      try {
+        xmlData = decryptMessage(initialMsg.Encrypt, config.encodingAESKey);
+      } catch {
+        return res.status(500).send('Decryption failed');
+      }
+    }
+
+    // 解析最终消息
+    const msg = await parseXml(xmlData);
+    const msgType = msg.MsgType || 'unknown';
+    const fromUser = msg.FromUserName || 'unknown';
+    const toUser = msg.ToUserName || 'unknown';
+    const createTime = msg.CreateTime || 0;
+
+    // 推送到飞书（不等待结果，避免阻塞回复）
+    const feishuMsg = formatMessage(msgType, msg, fromUser, createTime);
+    sendToFeishu(feishuMsg).catch(err => console.error('飞书推送异常:', err.message));
+
+    // 回复微信
+    const builder = new Builder({ rootName: 'xml', headless: true });
+    const replyMsg = builder.buildObject({
+      ToUserName: fromUser,
+      FromUserName: toUser,
+      CreateTime: Math.floor(Date.now() / 1000),
+      MsgType: 'text',
+      Content: '消息已收到，我们会尽快处理！'
+    });
+
+    res.type('application/xml').send(replyMsg);
+  } catch (error) {
+    console.error('消息处理异常:', error.message);
+    res.send('');
+  }
 });
 
+// 健康检查
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
-    config: {
-      hasToken: !!config.token,
-      hasEncodingAESKey: !!config.encodingAESKey,
-      hasAppId: !!config.appId,
-      hasFeishuWebhook: !!config.feishuWebhookUrl
-    }
-  });
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 export default app;
