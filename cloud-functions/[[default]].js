@@ -12,6 +12,53 @@ const config = {
   feishuWebhookUrl: process.env.FEISHU_WEBHOOK_URL
 };
 
+// PKCS7 编码
+function pkcs7Encode(data, k) {
+  const blockSize = 32;
+  const buffer = Buffer.alloc(blockSize);
+  const length = data.length;
+  const needed = blockSize - (length % blockSize);
+  for (let i = 0; i < needed; i++) {
+    buffer[i] = needed;
+  }
+  return Buffer.concat([data, buffer.slice(0, needed)]);
+}
+
+// PKCS7 解码
+function pkcs7Decode(data) {
+  const pad = data[data.length - 1];
+  if (pad < 1 || pad > 32) {
+    return data;
+  }
+  return data.slice(0, data.length - pad);
+}
+
+// AES 解密
+function decrypt(encrypted, encodingAesKey) {
+  const aesKey = Buffer.from(encodingAesKey + '=', 'base64');
+  const iv = aesKey.slice(0, 16);
+  
+  const decipher = crypto.createDecipheriv('aes-256-cbc', aesKey, iv);
+  decipher.setAutoPadding(false);
+  
+  let decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  decrypted = pkcs7Decode(decrypted);
+  
+  const msgLen = decrypted.readUInt32BE(16);
+  const msg = decrypted.slice(20, 20 + msgLen).toString('utf8');
+  const fromAppid = decrypted.slice(20 + msgLen).toString('utf8');
+  
+  return msg;
+}
+
+// 验证签名
+function verifySignature(token, timestamp, nonce, encrypt) {
+  const sortArr = [token, timestamp, nonce, encrypt].sort();
+  const sortStr = sortArr.join('');
+  const hash = crypto.createHash('sha1').update(sortStr).digest('hex');
+  return hash;
+}
+
 app.use(express.text({ type: 'text/xml' }));
 app.use(express.json());
 
@@ -114,7 +161,40 @@ function formatMessage(msgType, content, fromUser, createTime) {
 }
 
 app.post("/wechat", async (req, res) => {
-  const xmlData = req.body;
+  const rawBody = req.body;
+  
+  console.log('Received POST /wechat, rawBody type:', typeof rawBody);
+  console.log('Raw body:', rawBody);
+  
+  let xmlData = rawBody;
+  
+  // 检查是否为加密消息
+  if (typeof rawBody === 'object' && rawBody.encrypt) {
+    console.log('Encrypted message detected');
+    const { encrypt, msg_signature, timestamp, nonce } = rawBody;
+    
+    // 验证签名
+    const calcSignature = verifySignature(config.token, timestamp, nonce, encrypt);
+    console.log('Signature verification:', {
+      calculated: calcSignature,
+      received: msg_signature,
+      match: calcSignature === msg_signature
+    });
+    
+    if (calcSignature !== msg_signature) {
+      console.error('Signature verification failed!');
+      return res.send('Signature verification failed');
+    }
+    
+    // 解密消息
+    try {
+      xmlData = decrypt(encrypt, config.encodingAESKey);
+      console.log('Decrypted message:', xmlData);
+    } catch (error) {
+      console.error('Decryption error:', error);
+      return res.send('Decryption failed');
+    }
+  }
 
   parseString(xmlData, { explicitArray: false }, async (err, result) => {
     if (err) {
@@ -123,10 +203,23 @@ app.post("/wechat", async (req, res) => {
     }
 
     const msg = result.xml;
+    if (!msg) {
+      console.error('Invalid XML structure:', result);
+      return res.send('');
+    }
+    
     const msgType = msg.MsgType;
     const fromUser = msg.FromUserName;
     const toUser = msg.ToUserName;
     const createTime = msg.CreateTime;
+
+    console.log('Parsed message:', {
+      msgType,
+      fromUser,
+      toUser,
+      createTime,
+      msg
+    });
 
     let content = '';
 
@@ -155,7 +248,7 @@ app.post("/wechat", async (req, res) => {
     }
 
     const feishuMsg = formatMessage(msgType, content, fromUser, createTime);
-    console.log('WeChat message:', feishuMsg);
+    console.log('Feishu message:', feishuMsg);
     await sendToFeishu(feishuMsg);
 
     const builder = new Builder({ rootName: 'xml', headless: true });
