@@ -133,34 +133,48 @@ async function sendToFeishu(content) {
 function formatMessage(msgType, content, fromUser, createTime) {
   const time = new Date(createTime * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
   let contentText = '';
+  let title = '【微信公众号消息】';
 
   switch (msgType) {
     case 'text':
-      contentText = `文本消息: ${content}`;
+      contentText = `📝 文本消息：\n${content}`;
       break;
     case 'image':
-      contentText = `图片消息: [图片]`;
+      contentText = '🖼️ 图片消息';
       break;
     case 'voice':
-      contentText = `语音消息: [语音]`;
+      contentText = '🎵 语音消息';
       break;
     case 'video':
-      contentText = `视频消息: [视频]`;
+    case 'shortvideo':
+      contentText = '🎬 视频消息';
       break;
     case 'location':
-      contentText = `位置消息: [位置]`;
+      contentText = '📍 位置消息';
       break;
     case 'link':
-      contentText = `链接消息: [链接]`;
+      contentText = '🔗 链接消息';
       break;
     case 'event':
-      contentText = `事件消息: ${content}`;
+      title = '【微信公众号事件】';
+      // 处理事件消息
+      if (content.includes('unsubscribe')) {
+        contentText = '👋 用户取消关注';
+      } else if (content.includes('subscribe')) {
+        contentText = '🎉 新用户关注！';
+      } else if (content.includes('CLICK')) {
+        contentText = '👆 点击菜单事件';
+      } else if (content.includes('VIEW')) {
+        contentText = '🔍 点击链接跳转';
+      } else {
+        contentText = `📋 其他事件: ${content}`;
+      }
       break;
     default:
-      contentText = `其他消息(${msgType}): ${content}`;
+      contentText = `📦 其他消息(${msgType}): ${content}`;
   }
 
-  return `【微信公众号私信】\n发送者: ${fromUser}\n时间: ${time}\n${contentText}`;
+  return `${title}\n发送者: ${fromUser}\n时间: ${time}\n${contentText}`;
 }
 
 app.post("/wechat", async (req, res) => {
