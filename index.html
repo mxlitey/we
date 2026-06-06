@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信公众号私信转发服务</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 { color: #333;
+            text-align: center;
+            padding: 20px 0;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 { color: #007AFF;
+            margin-top: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        ul {
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <h1>微信公众号私信转发服务</h1>
+    <div class="container">
+        <div class="section">
+            <h2>服务概述</h2>
+            <p>本服务接收微信公众号私信并推送到飞书群。</p>
+        </div>
+        <div class="section">
+            <h2>API接口</h2>
+            <ul>
+                <li><code>/health</code> - 健康检查</li>
+                <li><code>/wechat</code> - 微信接口(GET验证，服务器配置，POST消息处理</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
