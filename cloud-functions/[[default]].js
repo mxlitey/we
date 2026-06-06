@@ -23,7 +23,21 @@ app.use((req, res, next) => {
 app.get("/wechat", (req, res) => {
   const { signature, timestamp, nonce, echostr } = req.query;
 
+  console.log('WeChat verify request:', {
+    signature,
+    timestamp,
+    nonce,
+    echostr,
+    hasToken: !!config.token
+  });
+
+  if (!config.token) {
+    console.error('WX_TOKEN is not configured!');
+    return res.status(500).send('Server configuration error');
+  }
+
   if (!signature || !timestamp || !nonce || !echostr) {
+    console.error('Missing parameters');
     return res.status(400).send('Missing parameters');
   }
 
@@ -31,9 +45,19 @@ app.get("/wechat", (req, res) => {
   const tmpStr = tmpArr.join('');
   const hash = crypto.createHash('sha1').update(tmpStr).digest('hex');
 
+  console.log('Verification:', {
+    tmpArr,
+    tmpStr,
+    calculatedHash: hash,
+    receivedSignature: signature,
+    match: hash === signature
+  });
+
   if (hash === signature) {
+    console.log('Verification success, returning echostr:', echostr);
     res.send(echostr);
   } else {
+    console.error('Verification failed');
     res.status(403).send('Invalid signature');
   }
 });
@@ -151,7 +175,13 @@ app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
-    version: "1.0.0"
+    version: "1.0.0",
+    config: {
+      hasToken: !!config.token,
+      hasEncodingAESKey: !!config.encodingAESKey,
+      hasAppId: !!config.appId,
+      hasFeishuWebhook: !!config.feishuWebhookUrl
+    }
   });
 });
 
