@@ -38,10 +38,13 @@ function decrypt(encrypted, encodingAesKey) {
   const aesKey = Buffer.from(encodingAesKey + '=', 'base64');
   const iv = aesKey.slice(0, 16);
   
+  // 先对加密内容做 base64 解码
+  const encryptedBuffer = Buffer.from(encrypted, 'base64');
+  
   const decipher = crypto.createDecipheriv('aes-256-cbc', aesKey, iv);
   decipher.setAutoPadding(false);
   
-  let decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  let decrypted = Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
   decrypted = pkcs7Decode(decrypted);
   
   const msgLen = decrypted.readUInt32BE(16);
