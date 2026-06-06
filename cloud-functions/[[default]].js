@@ -162,116 +162,131 @@ function formatMessage(msgType, content, fromUser, createTime) {
 
 app.post("/wechat", async (req, res) => {
   const rawBody = req.body;
+  const query = req.query;
   
   console.log('=== POST /wechat received ===');
   console.log('Content-Type:', req.get('Content-Type'));
+  console.log('Query:', JSON.stringify(query));
   console.log('rawBody type:', typeof rawBody);
-  console.log('rawBody keys:', typeof rawBody === 'object' ? Object.keys(rawBody) : 'not an object');
   console.log('rawBody:', JSON.stringify(rawBody));
   
-  let xmlData = rawBody;
+  let finalXmlData = rawBody;
   
-  // 检查是否为加密消息（安全模式）
-  if (typeof rawBody === 'object' && rawBody.encrypt) {
-    console.log('✓ Detected encrypted message (安全模式)');
-    const { encrypt, msg_signature, timestamp, nonce } = rawBody;
-    
-    // 验证签名
-    const calcSignature = verifySignature(config.token, timestamp, nonce, encrypt);
-    console.log('Signature verification:', {
-      calculated: calcSignature,
-      received: msg_signature,
-      match: calcSignature === msg_signature
-    });
-    
-    if (calcSignature !== msg_signature) {
-      console.error('✗ Signature verification failed!');
-      return res.send('Signature verification failed');
-    }
-    
-    // 解密消息
-    try {
-      xmlData = decrypt(encrypt, config.encodingAESKey);
-      console.log('✓ Decrypted message:', xmlData);
-    } catch (error) {
-      console.error('✗ Decryption error:', error);
-      return res.send('Decryption failed');
-    }
-  } else if (typeof rawBody === 'string' && rawBody.includes('<xml>')) {
-    // 明文消息（明文模式或兼容模式）
-    console.log('✓ Detected plaintext message (明文模式)');
-    xmlData = rawBody;
-  } else {
-    console.log('✗ Unknown message format, treating as plaintext');
-    xmlData = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
-  }
-
-  parseString(xmlData, { explicitArray: false }, async (err, result) => {
+  // 第一步：解析初始消息
+  parseString(rawBody, { explicitArray: false }, async (err, initialResult) => {
     if (err) {
-      console.error('✗ XML parse error:', err);
-      return res.send('');
-    }
-
-    const msg = result.xml;
-    if (!msg) {
-      console.error('✗ Invalid XML structure:', JSON.stringify(result));
+      console.error('✗ Initial XML parse error:', err);
       return res.send('');
     }
     
-    const msgType = msg.MsgType || 'unknown';
-    const fromUser = msg.FromUserName || 'unknown';
-    const toUser = msg.ToUserName || 'unknown';
-    const createTime = msg.CreateTime || 0;
-
-    console.log('✓ Parsed message successfully');
-    console.log('Message details:', {
-      msgType,
-      fromUser,
-      toUser,
-      createTime,
-      fullMsg: JSON.stringify(msg)
-    });
-
-    let content = '';
-
-    if (msgType === 'text') {
-      content = msg.Content;
-    } else if (msgType === 'image') {
-      content = `PicUrl: ${msg.PicUrl}`;
-    } else if (msgType === 'voice') {
-      content = `Recognition: ${msg.Recognition || '[语音]'}`;
-    } else if (msgType === 'video' || msgType === 'shortvideo') {
-      content = `[视频]`;
-    } else if (msgType === 'location') {
-      content = `Location_X: ${msg.Location_X}, Location_Y: ${msg.Location_Y}, Label: ${msg.Label}`;
-    } else if (msgType === 'link') {
-      content = `Title: ${msg.Title}, Description: ${msg.Description}, Url: ${msg.Url}`;
-    } else if (msgType === 'event') {
-      const eventType = msg.Event;
-      content = `Event: ${eventType}`;
-      if (eventType === 'subscribe') {
-        content += `, EventKey: ${msg.EventKey || ''}`;
-      } else if (eventType === 'unsubscribe') {
-        content = '取消关注';
-      } else if (eventType === 'CLICK') {
-        content += `, EventKey: ${msg.EventKey}`;
+    const initialMsg = initialResult.xml;
+    
+    // 检查是否为加密消息（安全模式）
+    if (initialMsg && initialMsg.Encrypt) {
+      console.log('✓ Detected encrypted message (安全模式)');
+      
+      const encrypt = initialMsg.Encrypt;
+      const msg_signature = query.msg_signature;
+      const timestamp = query.timestamp;
+      const nonce = query.nonce;
+      
+      console.log('Encrypt data:', encrypt);
+      console.log('Params from URL:', { msg_signature, timestamp, nonce });
+      
+      // 验证签名
+      const calcSignature = verifySignature(config.token, timestamp, nonce, encrypt);
+      console.log('Signature verification:', {
+        calculated: calcSignature,
+        received: msg_signature,
+        match: calcSignature === msg_signature
+      });
+      
+      if (calcSignature !== msg_signature) {
+        console.error('✗ Signature verification failed!');
+        return res.send('Signature verification failed');
       }
+      
+      // 解密消息
+      try {
+        finalXmlData = decrypt(encrypt, config.encodingAESKey);
+        console.log('✓ Decrypted message:', finalXmlData);
+      } catch (error) {
+        console.error('✗ Decryption error:', error);
+        return res.send('Decryption failed');
+      }
+    } else {
+      console.log('✓ Detected plaintext message (明文模式)');
     }
+    
+    // 第二步：解析最终消息（可能是解密后的）
+    parseString(finalXmlData, { explicitArray: false }, async (err2, result) => {
+      if (err2) {
+        console.error('✗ Final XML parse error:', err2);
+        return res.send('');
+      }
 
-    const feishuMsg = formatMessage(msgType, content, fromUser, createTime);
-    console.log('Feishu message:', feishuMsg);
-    await sendToFeishu(feishuMsg);
+      const msg = result.xml;
+      if (!msg) {
+        console.error('✗ Invalid XML structure:', JSON.stringify(result));
+        return res.send('');
+      }
+      
+      const msgType = msg.MsgType || 'unknown';
+      const fromUser = msg.FromUserName || 'unknown';
+      const toUser = msg.ToUserName || 'unknown';
+      const createTime = msg.CreateTime || 0;
 
-    const builder = new Builder({ rootName: 'xml', headless: true });
-    const replyMsg = builder.buildObject({
-      ToUserName: fromUser,
-      FromUserName: toUser,
-      CreateTime: Math.floor(Date.now() / 1000),
-      MsgType: 'text',
-      Content: '消息已收到，我们会尽快处理！'
+      console.log('✓ Parsed message successfully');
+      console.log('Message details:', {
+        msgType,
+        fromUser,
+        toUser,
+        createTime,
+        fullMsg: JSON.stringify(msg)
+      });
+
+      let content = '';
+
+      if (msgType === 'text') {
+        content = msg.Content;
+      } else if (msgType === 'image') {
+        content = `PicUrl: ${msg.PicUrl}`;
+      } else if (msgType === 'voice') {
+        content = `Recognition: ${msg.Recognition || '[语音]'}`;
+      } else if (msgType === 'video' || msgType === 'shortvideo') {
+        content = `[视频]`;
+      } else if (msgType === 'location') {
+        content = `Location_X: ${msg.Location_X}, Location_Y: ${msg.Location_Y}, Label: ${msg.Label}`;
+      } else if (msgType === 'link') {
+        content = `Title: ${msg.Title}, Description: ${msg.Description}, Url: ${msg.Url}`;
+      } else if (msgType === 'event') {
+        const eventType = msg.Event;
+        content = `Event: ${eventType}`;
+        if (eventType === 'subscribe') {
+          content += `, EventKey: ${msg.EventKey || ''}`;
+        } else if (eventType === 'unsubscribe') {
+          content = '取消关注';
+        } else if (eventType === 'CLICK') {
+          content += `, EventKey: ${msg.EventKey}`;
+        }
+      }
+
+      const feishuMsg = formatMessage(msgType, content, fromUser, createTime);
+      console.log('Feishu message:', feishuMsg);
+      await sendToFeishu(feishuMsg);
+
+      const builder = new Builder({ rootName: 'xml', headless: true });
+      const replyMsg = builder.buildObject({
+        ToUserName: fromUser,
+        FromUserName: toUser,
+        CreateTime: Math.floor(Date.now() / 1000),
+        MsgType: 'text',
+        Content: '消息已收到，我们会尽快处理！'
+      });
+
+      console.log('Reply message:', replyMsg);
+      res.type('application/xml').send(replyMsg);
     });
-
-    res.type('application/xml').send(replyMsg);
   });
 });
 
