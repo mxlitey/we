@@ -59,8 +59,8 @@ function verifySignature(token, timestamp, nonce, encrypt) {
   return hash;
 }
 
-app.use(express.text({ type: 'text/xml' }));
 app.use(express.json());
+app.use(express.text({ type: 'text/xml' }));
 
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -163,14 +163,17 @@ function formatMessage(msgType, content, fromUser, createTime) {
 app.post("/wechat", async (req, res) => {
   const rawBody = req.body;
   
-  console.log('Received POST /wechat, rawBody type:', typeof rawBody);
-  console.log('Raw body:', rawBody);
+  console.log('=== POST /wechat received ===');
+  console.log('Content-Type:', req.get('Content-Type'));
+  console.log('rawBody type:', typeof rawBody);
+  console.log('rawBody keys:', typeof rawBody === 'object' ? Object.keys(rawBody) : 'not an object');
+  console.log('rawBody:', JSON.stringify(rawBody));
   
   let xmlData = rawBody;
   
-  // 检查是否为加密消息
+  // 检查是否为加密消息（安全模式）
   if (typeof rawBody === 'object' && rawBody.encrypt) {
-    console.log('Encrypted message detected');
+    console.log('✓ Detected encrypted message (安全模式)');
     const { encrypt, msg_signature, timestamp, nonce } = rawBody;
     
     // 验证签名
@@ -182,43 +185,51 @@ app.post("/wechat", async (req, res) => {
     });
     
     if (calcSignature !== msg_signature) {
-      console.error('Signature verification failed!');
+      console.error('✗ Signature verification failed!');
       return res.send('Signature verification failed');
     }
     
     // 解密消息
     try {
       xmlData = decrypt(encrypt, config.encodingAESKey);
-      console.log('Decrypted message:', xmlData);
+      console.log('✓ Decrypted message:', xmlData);
     } catch (error) {
-      console.error('Decryption error:', error);
+      console.error('✗ Decryption error:', error);
       return res.send('Decryption failed');
     }
+  } else if (typeof rawBody === 'string' && rawBody.includes('<xml>')) {
+    // 明文消息（明文模式或兼容模式）
+    console.log('✓ Detected plaintext message (明文模式)');
+    xmlData = rawBody;
+  } else {
+    console.log('✗ Unknown message format, treating as plaintext');
+    xmlData = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
   }
 
   parseString(xmlData, { explicitArray: false }, async (err, result) => {
     if (err) {
-      console.error('XML parse error:', err);
+      console.error('✗ XML parse error:', err);
       return res.send('');
     }
 
     const msg = result.xml;
     if (!msg) {
-      console.error('Invalid XML structure:', result);
+      console.error('✗ Invalid XML structure:', JSON.stringify(result));
       return res.send('');
     }
     
-    const msgType = msg.MsgType;
-    const fromUser = msg.FromUserName;
-    const toUser = msg.ToUserName;
-    const createTime = msg.CreateTime;
+    const msgType = msg.MsgType || 'unknown';
+    const fromUser = msg.FromUserName || 'unknown';
+    const toUser = msg.ToUserName || 'unknown';
+    const createTime = msg.CreateTime || 0;
 
-    console.log('Parsed message:', {
+    console.log('✓ Parsed message successfully');
+    console.log('Message details:', {
       msgType,
       fromUser,
       toUser,
       createTime,
-      msg
+      fullMsg: JSON.stringify(msg)
     });
 
     let content = '';
