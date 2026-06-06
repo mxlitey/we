@@ -3,15 +3,9 @@
   "version": "1.0.0",
   "description": "微信公众号私信推送到飞书webhook",
   "type": "module",
-  "scripts": {
-    "dev": "edgeone pages dev"
-  },
   "dependencies": {
     "express": "^4.18.2",
     "xml2js": "^0.6.2",
     "axios": "^1.6.0"
-  },
-  "devDependencies": {
-    "edgeone": "^0.0.1"
   }
 }
