@@ -1,6 +1,12 @@
 {
+  "$schema": "https://edgeone.ai/schemas/cloud-functions.json",
+  "cloudFunctions": {
+    "type": "express",
+    "handler": "./cloud-functions/[[default]].js"
+  },
   "functions": {
-    "memorySize": 128,
-    "timeout": 30
+    "memorySize": 256,
+    "timeout": 30,
+    "nodeVersion": "20.x"
   }
 }
