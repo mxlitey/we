@@ -76,6 +76,7 @@
 | `WX_ENCODING_AES_KEY` | 微信公众号消息加密密钥 | 是 |
 | `WX_APP_ID` | 微信公众号 AppID | 是 |
 | `FEISHU_WEBHOOK_URL` | 飞书机器人 Webhook 地址 | 是 |
+| `WX_REPLY_CONTENT` | 回复用户的文本内容，不设置则不回复 | 否 |
 
 ### 部署步骤
 

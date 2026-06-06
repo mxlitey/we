@@ -9,7 +9,8 @@ const config = {
   token: process.env.WX_TOKEN,
   encodingAESKey: process.env.WX_ENCODING_AES_KEY,
   appId: process.env.WX_APP_ID,
-  feishuWebhookUrl: process.env.FEISHU_WEBHOOK_URL
+  feishuWebhookUrl: process.env.FEISHU_WEBHOOK_URL,
+  replyContent: process.env.WX_REPLY_CONTENT
 };
 
 // 启动时校验必要配置
@@ -175,17 +176,20 @@ app.post("/wechat", async (req, res) => {
     const feishuMsg = formatMessage(msgType, msg, fromUser, createTime);
     sendToFeishu(feishuMsg).catch(err => console.error('飞书推送异常:', err.message));
 
-    // 回复微信
-    const builder = new Builder({ rootName: 'xml', headless: true });
-    const replyMsg = builder.buildObject({
-      ToUserName: fromUser,
-      FromUserName: toUser,
-      CreateTime: Math.floor(Date.now() / 1000),
-      MsgType: 'text',
-      Content: '消息已收到，我们会尽快处理！'
-    });
-
-    res.type('application/xml').send(replyMsg);
+    // 回复微信（设置了 WX_REPLY_CONTENT 才回复，否则返回空串让微信不展示）
+    if (config.replyContent) {
+      const builder = new Builder({ rootName: 'xml', headless: true });
+      const replyMsg = builder.buildObject({
+        ToUserName: fromUser,
+        FromUserName: toUser,
+        CreateTime: Math.floor(Date.now() / 1000),
+        MsgType: 'text',
+        Content: config.replyContent
+      });
+      res.type('application/xml').send(replyMsg);
+    } else {
+      res.send('');
+    }
   } catch (error) {
     console.error('消息处理异常:', error.message);
     res.send('');
