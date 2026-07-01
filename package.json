@@ -3,9 +3,22 @@
   "version": "1.0.0",
   "description": "微信公众号私信推送到飞书webhook",
   "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "dependencies": {
+    "animal-island-ui": "^1.1.0",
+    "axios": "^1.6.0",
+    "classnames": "^2.5.1",
     "express": "^4.18.2",
-    "xml2js": "^0.6.2",
-    "axios": "^1.6.0"
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "vite": "^8.1.2"
   }
 }
