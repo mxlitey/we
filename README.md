@@ -15,7 +15,7 @@
 ## 项目结构
 
 ```
-├── cloud-functions/
+├── node-functions/
 │   ├── [[default]].js   # 云函数入口（路由处理）
 │   ├── config.js        # 配置管理
 │   ├── crypto.js        # 加解密（AES-256-CBC、签名验证）
