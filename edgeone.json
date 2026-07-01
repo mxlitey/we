@@ -1,6 +1,6 @@
 {
   "$schema": "https://edgeone.ai/schemas/cloud-functions.json",
-  "nodeVersion": "22.11.0",
+  "nodeVersion": "22.17.1",
   "cloudFunctions": {
     "nodejs": {
       "maxDuration": 30
