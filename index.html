@@ -4,55 +4,594 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>微信公众号私信转发服务</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
+        :root {
+            /* primary mint teal */
+            --primary: #19c8b9;
+            --primary-hover: #3dd4c6;
+            --primary-active: #11a89b;
+            --primary-bg: #e6f9f6;
+
+            /* warm-brown text */
+            --text: #794f27;
+            --text-body: #725d42;
+            --text-secondary: #9f927d;
+            --text-muted: #8a7b66;
+            --text-disabled: #c4b89e;
+
+            /* parchment background */
+            --bg: #f8f8f0;
+            --bg-content: rgb(247, 243, 223);
+            --bg-disabled: #f0ece2;
+
+            /* borders */
+            --border: #c4b89e;
+            --border-hover: #a89878;
+            --border-strong: #9f927d;
+
+            /* status */
+            --success: #6fba2c;
+            --success-active: #5a9e1e;
+            --warning: #f5c31c;
+            --warning-active: #dba90e;
+            --error: #e05a5a;
+            --error-active: #c94444;
+
+            /* game-special */
+            --focus-yellow: #ffcc00;
+            --focus-yellow-d: #e0b800;
+
+            /* 3D shadow taupe */
+            --shadow-btn: #bdaea0;
+            --shadow-input: #d4c9b4;
+
+            /* radii */
+            --r-sm: 12px;
+            --r-base: 18px;
+            --r-lg: 24px;
+            --r-pill: 50px;
+
+            /* motion */
+            --ease: cubic-bezier(0.4, 0, 0.2, 1);
+            --d-fast: 0.15s;
+            --d-base: 0.25s;
+            --d-slow: 0.35s;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: Nunito, 'Noto Sans SC', -apple-system, 'PingFang SC', sans-serif;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text-body);
+        }
+
+        /* Page Layout */
+        .page {
+            min-height: 100vh;
+            padding: 40px 20px;
+            background:
+                radial-gradient(circle at 10% 20%, rgba(25, 200, 185, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 90% 80%, rgba(248, 166, 178, 0.08) 0%, transparent 50%),
+                var(--bg);
+        }
+
+        .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
         }
-        h1 { color: #333;
+
+        /* Header */
+        .header {
             text-align: center;
-            padding: 20px 0;
+            margin-bottom: 40px;
+            animation: bounceIn 0.8s var(--ease);
         }
-        .container {
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
         }
-        h2 { color: #007AFF;
-            margin-top: 20px;
+
+        .header-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, #8cd98c 0%, #6abf69 100%);
+            border-radius: 50% 0 50% 0;
+            animation: wiggle 2s ease-in-out infinite;
         }
-        .section {
-            margin-bottom: 30px;
+
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
         }
-        code {
-            background-color: #f0f0f0;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
+
+        .header-subtitle {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-weight: 500;
         }
-        ul {
+
+        /* Card */
+        .island-card {
+            background: var(--bg-content);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: transform 0.3s var(--ease);
+            border: 2px solid transparent;
+        }
+
+        .island-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .island-card.pattern-default {
+            background:
+                radial-gradient(circle, rgba(247, 243, 223, 0.18) 1.5px, transparent 1.5px) 0 0/28px 28px,
+                radial-gradient(circle, rgba(232, 220, 200, 0.12) 1px, transparent 1px) 7px 7px/14px 14px,
+                #f8f4e8;
+            border-color: #c4b89e;
+        }
+
+        .island-card.pattern-app-pink {
+            background:
+                radial-gradient(circle, rgba(248, 166, 178, 0.18) 1.5px, transparent 1.5px) 0 0/28px 28px,
+                radial-gradient(circle, rgba(255, 200, 210, 0.12) 1px, transparent 1px) 7px 7px/14px 14px,
+                #fde4e8;
+            border-color: #f8a6b2;
+        }
+
+        .island-card.pattern-app-yellow {
+            background:
+                radial-gradient(circle, rgba(247, 205, 103, 0.18) 1.5px, transparent 1.5px) 0 0/28px 28px,
+                radial-gradient(circle, rgba(250, 220, 140, 0.12) 1px, transparent 1px) 7px 7px/14px 14px,
+                #fdf6e0;
+            border-color: #f7cd67;
+            color: #8a6d20;
+        }
+
+        .island-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .island-card-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary) 0%, #15b0a3 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .island-card-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: 0.02em;
+        }
+
+        .island-card-body {
+            color: var(--text-body);
             line-height: 1.8;
+            font-size: 15px;
+        }
+
+        /* Title (Ribbon) */
+        .island-title {
+            display: inline-flex;
+            align-items: center;
+            height: 2em;
+            padding: 0 1.6em;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: 0.04em;
+            position: relative;
+            filter: drop-shadow(0 0.08em 0.12em rgba(0,0,0,0.05));
+        }
+
+        .island-title.small { font-size: 14px; }
+        .island-title.middle { font-size: 20px; }
+        .island-title.large { font-size: 28px; }
+
+        .ribbon-front {
+            position: absolute;
+            inset: 0 0.1em;
+            border-radius: 0.2em;
+            background: var(--rf, #82d5bb);
+            transform: perspective(11.5em) rotateX(3deg);
+            box-shadow: inset 0 -0.06em 0 rgba(0,0,0,0.05);
+            z-index: 3;
+        }
+
+        .ribbon-back {
+            position: absolute;
+            width: 1.7em;
+            height: 1.7em;
+            bottom: -0.4em;
+            background: var(--rb, #40a880);
+            z-index: 1;
+        }
+
+        .ribbon-back.left {
+            left: 0;
+            clip-path: polygon(100% 0%, 100% 100%, 0% 100%, 30% 50%, 0% 0%);
+        }
+
+        .ribbon-back.right {
+            right: 0;
+            clip-path: polygon(0% 0%, 100% 0%, 70% 50%, 100% 100%, 0% 100%);
+        }
+
+        .ribbon-fold {
+            position: absolute;
+            top: calc(100% - 0.04em);
+            z-index: 2;
+        }
+
+        .ribbon-fold.left {
+            border-width: 0 0.95em 0.45em 0;
+            border-style: solid;
+            border-color: transparent var(--rk, #186048) transparent transparent;
+        }
+
+        .ribbon-fold.right {
+            border-width: 0 0 0.45em 0.95em;
+            border-style: solid;
+            border-color: transparent transparent transparent var(--rk, #186048);
+        }
+
+        .island-title-text {
+            font-weight: 900;
+            padding-top: 0.11em;
+            position: relative;
+            z-index: 4;
+            color: var(--rt, #fff);
+        }
+
+        /* Platform Tags */
+        .platform-tags {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .island-tag {
+            display: inline-flex;
+            align-items: center;
+            height: 29px;
+            line-height: 26px;
+            padding: 0 12px;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 13px;
+            border: 1.5px solid transparent;
+            transition: all 0.2s ease;
+            cursor: default;
+        }
+
+        .island-tag.app-teal {
+            background: #82d5bb;
+            color: #fff;
+        }
+
+        .island-tag.app-blue {
+            background: #889df0;
+            color: #fff;
+        }
+
+        .island-tag.app-yellow {
+            background: #f7cd67;
+            color: #725d42;
+        }
+
+        .island-tag:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(61,52,40,0.12);
+        }
+
+        /* API List */
+        .api-list {
+            list-style: none;
+            margin-top: 12px;
+        }
+
+        .api-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .api-item:hover {
+            background: rgba(25, 200, 185, 0.1);
+            transform: translateX(4px);
+        }
+
+        .api-code {
+            background: linear-gradient(135deg, var(--primary) 0%, #15b0a3 100%);
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-family: 'SF Mono', Consolas, monospace;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(25, 200, 185, 0.3);
+        }
+
+        .api-desc {
+            color: var(--text-body);
+            font-size: 14px;
+        }
+
+        /* Feature List */
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .feature-list li::before {
+            content: '✅';
+            font-size: 14px;
+        }
+
+        /* Footer */
+        .page-footer {
+            text-align: center;
+            margin-top: 40px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .heart {
+            display: inline-block;
+            color: #e88a8a;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        /* Floating Leaves */
+        .floating-leaf {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            background: #6abf69;
+            border-radius: 50% 0 50% 0;
+            opacity: 0.5;
+            pointer-events: none;
+            animation: falling linear infinite;
+        }
+
+        @keyframes falling {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 0;
+            }
+            10% { opacity: 0.5; }
+            90% { opacity: 0.5; }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* Decorative Nook Background */
+        .nook-decoration {
+            position: fixed;
+            bottom: -50px;
+            right: -50px;
+            width: 300px;
+            height: 300px;
+            opacity: 0.06;
+            background: radial-gradient(ellipse at center, #8b7355 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 8s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .page {
+                padding: 20px 16px;
+            }
+
+            .island-card {
+                padding: 20px;
+            }
+
+            .platform-tags {
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>微信公众号私信转发服务</h1>
-    <div class="container">
-        <div class="section">
-            <h2>服务概述</h2>
-            <p>本服务接收微信公众号私信并推送到飞书、企业微信、钉钉等群机器人。</p>
-        </div>
-        <div class="section">
-            <h2>API接口</h2>
-            <ul>
-                <li><code>/health</code> - 健康检查</li>
-                <li><code>/wechat</code> - 微信接口(GET验证，服务器配置，POST消息处理</li>
-            </ul>
-        </div>
-    </div>
+    <div class="nook-decoration"></div>
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="react,typescript">
+        // ==================== Inline Components ====================
+
+        function Title({ color = 'default-green', size = 'middle', children }) {
+            const colorSchemes = {
+                'default-green': { '--rf': '#27d039', '--rb': '#20992a', '--rk': '#115017', '--rt': '#fff' },
+                'app-teal': { '--rf': '#82d5bb', '--rb': '#40a880', '--rk': '#186048', '--rt': '#fff' },
+                'app-pink': { '--rf': '#f8a6b2', '--rb': '#e06880', '--rk': '#a03060', '--rt': '#fff' },
+                'app-yellow': { '--rf': '#f7cd67', '--rb': '#d4a030', '--rk': '#8a6010', '--rt': '#725d42' },
+            };
+
+            return (
+                <div className={`island-title ${size}`} style={colorSchemes[color]}>
+                    <div className="ribbon-back left" />
+                    <div className="ribbon-back right" />
+                    <div className="ribbon-fold left" />
+                    <div className="ribbon-fold right" />
+                    <div className="ribbon-front" />
+                    <span className="island-title-text">{children}</span>
+                </div>
+            );
+        }
+
+        function Card({ pattern, children }) {
+            const patternClass = pattern ? `pattern-${pattern}` : '';
+            return (
+                <div className={`island-card ${patternClass}`}>
+                    {children}
+                </div>
+            );
+        }
+
+        function CardHeader({ icon, title }) {
+            return (
+                <div className="island-card-header">
+                    <div className="island-card-icon">{icon}</div>
+                    <div className="island-card-title">{title}</div>
+                </div>
+            );
+        }
+
+        function Tag({ color = 'default', children }) {
+            return (
+                <span className={`island-tag ${color}`}>
+                    {children}
+                </span>
+            );
+        }
+
+        // ==================== Page ====================
+
+        function App() {
+            const [leaves, setLeaves] = React.useState([]);
+
+            React.useEffect(() => {
+                // Create floating leaves
+                const createLeaf = () => {
+                    const id = Date.now() + Math.random();
+                    const left = Math.random() * 100;
+                    const duration = Math.random() * 5 + 8;
+                    const size = Math.random() * 15 + 10;
+                    const colors = ['#6abf69', '#8cd98c', '#7fcdbb', '#88d8b0'];
+
+                    setLeaves(prev => [...prev, { id, left, duration, size, color: colors[Math.floor(Math.random() * colors.length)] }]);
+                    setTimeout(() => setLeaves(prev => prev.filter(l => l.id !== id)), 15000);
+                };
+
+                const interval = setInterval(createLeaf, 2000);
+                for (let i = 0; i < 3; i++) setTimeout(createLeaf, i * 500);
+
+                return () => clearInterval(interval);
+            }, []);
+
+            return (
+                <div className="page">
+                    {leaves.map(leaf => (
+                        <div
+                            key={leaf.id}
+                            className="floating-leaf"
+                            style={{
+                                left: `${leaf.left}vw`,
+                                width: `${leaf.size}px`,
+                                height: `${leaf.size}px`,
+                                background: leaf.color,
+                                animationDuration: `${leaf.duration}s`,
+                            }}
+                        />
+                    ))}
+
+                    <div className="container">
+                        <div className="header">
+                            <div className="header-icon"></div>
+                            <Title color="app-teal" size="large">微信公众号私信转发</Title>
+                            <div className="header-subtitle">将消息实时推送到您喜爱的群机器人</div>
+                        </div>
+
+                        <Card pattern="default">
+                            <CardHeader icon="📋" title="服务概述" />
+                            <div className="island-card-body">
+                                本服务接收微信公众号私信和事件通知，并实时推送到您配置的群机器人。支持消息类型订阅，让您只收到关心的消息。
+                            </div>
+                            <div className="platform-tags">
+                                <Tag color="app-teal">飞书</Tag>
+                                <Tag color="app-blue">企业微信</Tag>
+                                <Tag color="app-yellow">钉钉</Tag>
+                            </div>
+                        </Card>
+
+                        <Card pattern="app-pink">
+                            <CardHeader icon="🔗" title="API 接口" />
+                            <ul className="api-list">
+                                <li className="api-item">
+                                    <code className="api-code">/wechat</code>
+                                    <span className="api-desc">微信服务器验证 & 消息接收</span>
+                                </li>
+                                <li className="api-item">
+                                    <code className="api-code">/health</code>
+                                    <span className="api-desc">健康检查</span>
+                                </li>
+                            </ul>
+                        </Card>
+
+                        <Card pattern="app-yellow">
+                            <CardHeader icon="✨" title="功能特性" />
+                            <ul className="feature-list">
+                                <li>自动识别平台 — 根据 webhook 地址自动适配消息格式</li>
+                                <li>消息类型订阅 — 自定义推送哪些类型的消息</li>
+                                <li>多种加密模式 — 支持明文/安全/兼容模式</li>
+                                <li>环境变量配置 — 无需修改代码即可部署</li>
+                            </ul>
+                        </Card>
+
+                        <div className="page-footer">
+                            Made with <span className="heart">♥</span> by 动物森友会爱好者
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
 </body>
 </html>
