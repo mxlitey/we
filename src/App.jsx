@@ -21,7 +21,7 @@ const S = {
   },
   heroText: { textAlign: 'left' },
   heroTitle: {
-    fontFamily: "Nunito, 'Zen Maru Gothic', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
+    fontFamily: "Nunito, 'ZCOOL KuaiLe', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
     fontSize: 55, fontWeight: 800, lineHeight: 1.1, color: '#FFF9E6',
     textShadow: '0px 4px 1px rgba(0, 0, 0, 0.4)', margin: '0 0 12px',
   },

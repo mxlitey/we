@@ -3,44 +3,17 @@
 /* Nunito - Variable Font (weights 200-900) */
 @font-face {
   font-family: 'Nunito';
-  src: url('/fonts/Nunito[wght].ttf') format('truetype-variations');
+  src: url('/fonts/Nunito%5Bwght%5D.ttf') format('truetype-variations');
   font-weight: 200 900;
   font-style: normal;
   font-display: swap;
 }
 
-/* Zen Maru Gothic - Regular (400) */
+/* ZCOOL KuaiLe - 简体中文圆润字体 */
 @font-face {
-  font-family: 'Zen Maru Gothic';
-  src: url('/fonts/ZenMaruGothic-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Zen Maru Gothic - Medium (500) */
-@font-face {
-  font-family: 'Zen Maru Gothic';
-  src: url('/fonts/ZenMaruGothic-Medium.ttf') format('truetype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Zen Maru Gothic - Bold (700) */
-@font-face {
-  font-family: 'Zen Maru Gothic';
-  src: url('/fonts/ZenMaruGothic-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Zen Maru Gothic - Black (900) */
-@font-face {
-  font-family: 'Zen Maru Gothic';
-  src: url('/fonts/ZenMaruGothic-Black.ttf') format('truetype');
-  font-weight: 900;
+  font-family: 'ZCOOL KuaiLe';
+  src: url('/fonts/ZCOOLKuaiLe-Regular.ttf') format('truetype');
+  font-weight: 400 900;
   font-style: normal;
   font-display: swap;
 }

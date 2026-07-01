@@ -4,7 +4,7 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: Nunito, 'Noto Sans SC', 'Zen Maru Gothic', -apple-system, 'PingFang SC', sans-serif;
+  font-family: Nunito, 'Noto Sans SC', -apple-system, 'PingFang SC', sans-serif;
   color: #725d42;
   position: relative;
   min-height: 100vh;
