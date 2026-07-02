@@ -343,7 +343,6 @@ function App() {
             <a href="https://github.com/mxlitey/we" target="_blank" rel="noopener noreferrer" style={S.footerLink}>GitHub</a>
             <a href="https://github.com/guokaigdg/animal-island-ui" target="_blank" rel="noopener noreferrer" style={S.footerLink}>Animal-Island-UI</a>
           </div>
-          <div>Powered by EdgeOne</div>
         </div>
       </div>
     </Cursor>
