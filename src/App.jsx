@@ -61,7 +61,7 @@ const S = {
   },
   footer: { padding: '32px 40px', textAlign: 'center', fontSize: 12, color: '#7c5734', marginTop: 32 },
   footerLinks: { display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 12 },
-  footerLink: { fontSize: 13, color: '#7c5734', cursor: 'pointer' },
+  footerLink: { fontSize: 13, color: '#7c5734', cursor: 'pointer', textDecoration: 'none' },
 }
 
 // ============================================
@@ -338,7 +338,13 @@ function App() {
         </div>
 
         {/* Footer */}
-        <div style={{ height: isMobile ? 80 : 100 }}></div>
+        <div style={S.footer}>
+          <div style={S.footerLinks}>
+            <a href="https://github.com/mxlitey/we" target="_blank" rel="noopener noreferrer" style={S.footerLink}>GitHub</a>
+            <a href="https://github.com/guokaigdg/animal-island-ui" target="_blank" rel="noopener noreferrer" style={S.footerLink}>Animal-Island-UI</a>
+          </div>
+          <div>Powered by EdgeOne</div>
+        </div>
       </div>
     </Cursor>
   )
